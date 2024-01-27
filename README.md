@@ -1,17 +1,19 @@
 # Arduino Rubik's Clock
 
-The Arduino Rubik's Clock is a clock that shows the time of day on the face of a Rubik's Cube.  Every minute of the day the cube solves itself in a few twists that result in a new time of day.  I implemented this on a small 1.44 inch square TFT display with the resolution of 128x128 pixels.  I used a Wemos S2 mini Arduino which uses the capable ESP32 processor.  You will definately need a fairly fast process for this progect.  For instance, an Arduino Uno is too slow for the graphics.
+The Arduino Rubik's Clock is a clock that shows the time of day on the face of a Rubik's Cube.  Every minute of the day the cube solves itself in a few twists that result in a new time of day.  I implemented this on a small 1.44 inch square TFT display with the resolution of 128x128 pixels.  I used a Wemos S2 mini Arduino which uses the capable ESP32 processor.  You will definitely need a fairly fast process for this project.  For instance, an Arduino Uno is too slow for the graphics.
 
-The is an Arduino varient based on my origional Rubik's clock that runs Javascript on a Raspberry Pi 4b.  My arduino version is much simpler.  All it does is plays a new GIF video each minute.  The GIFs are generated from taking screenshots of the origional Rubik's clock.  Here are some links to the origional clock:
+The is an Arduino variant based on my original Rubik's clock that runs Javascript on a Raspberry Pi 4b.  My arduino version is much simpler.  All it does is plays a new GIF video each minute.  The GIFs are generated from taking screenshots of the original Rubik's clock.  Here are some links to the original clock:
 
 - Github: https://github.com/mhirst1960/rubiks-clock
 - Instructibles: https://www.instructables.com/Rubiks-Clock/
 
-## From 10:01 to 10:02
+## What Time is it!
 
+![Alt Text](sdcard_files/12hourclock-128x128/rubiks-clock-0843.gif "The time is 08:43")
 ![Alt Text](sdcard_files/12hourclock-128x128/rubiks-clock-1002.gif "The time is 10:02")
 
-# parts
+
+# Parts
 
 - Wemos S2 mini 
 - Adafruit 1.44" Color TFT with Micro SD Socket
