@@ -20,6 +20,7 @@ The is an Arduino variant based on my original Rubik's clock that runs Javascrip
 - Wemos S2 mini 
 - Adafruit 1.44" Color TFT with Micro SD Socket
 - Adafruit PCF8523 Real Time Clock
+- SD Card at least 4GB and no larger than 32GB
 
 
 # Links
@@ -59,28 +60,37 @@ Install esp32 by Espressif Systems
 
 2. Tools -> board -> EPS32 -> LOLIN S2 MINI
 
+2. Tools -> board -> EPS32 -> Adafruit Feather S2
+
+
 ## Bugs
 - I was never able to robustly get WiFi working on my Wemos S2.  I saw it work only once in all my experiments.  I will experiment more with other Arduino boards.  The Adafruit Feather wFL has good reviews.
 - Because of the above issue, I'm not entirely sure if the NPT code will actually update the time after if there is an internet connection.
 - I'm not entirely sure that the code is correct for the internal RTC.  Without the External RTC attached you can define ENABLE_RTC_ESP32 to use the internal RTC, but, you would need some sort of minimal battery to hold the time while the board is unplugged.  I haven't tried using a battery to power my Wemos S2. 
 
-## Wiring the TFT
+## Wiring the S2 mini and TFT
 
-Connect these wires from the Wemos S2 to the Adafruit ST7735 TFT
+Connect these wires from the Adafruit ST7735 TFT to either of these:
+- Wemos S2
+  -  https://www.wemos.cc/en/latest/s2/s2_mini.html
+- Adafruit Feather ESP32-S2 (product 5000 or 5303)
+  - Feather: https://www.adafruit.com/product/5000
+  - https://learn.adafruit.com/adafruit-esp32-s2-feather/pinouts 
 
-| Description                  | S2 Mini | Adafruit ST7735 TFT |
-| ----                         | ------- | -------------- |
-| 3v or 5V power               | 3v3     | Vin 1 |
-| 3.3V out                     | -       | 3v3 2 |
-| Ground                       | GND     | Gnd 3 |
-| SPI clock                    | 7       | SCK 4 |
-| MISO (for SD card only)      | 9       | SO 5 |
-| MOSI                         | 11      | SI 6 |
-| TFT_CS chip select           | 12 (SS) | TCS 7 |
-| TFT reset                    | 5       | RST 8 |
-| TFT SPI data/command select  | 3       | D/C 9 |
-| SD card chip select          | 16      | CCS 10 |
-| backlight PWM                | -       | Lite 11 |
+| Description                  | ST7735 TFT | S2 Mini | Feather S2 | Feather ESP32 |
+| ----                         | -------    | --------| -------------- | -----|
+| 3v or 5V power               |Vin 1       | 3v3     | Vin     | Vin |
+| 3.3V out                     | 3v3 2      | -       | 3V      | 3V |
+| Ground                       | Gnd 3      | GND     | GND     | GND |
+| SPI clock                    | SCK 4      | 7       | SCK     | SCK |
+| MISO (for SD card only)      | SO 5       | 9       | MI (21) | MI  |
+| MOSI                         | SI 6       | 11      | MO (19) | MO |
+| TFT_CS chip select           | TCS 7      | 12 (SS) | 12      | 12 |
+| TFT reset                    | RST 8      | 5       | 5       | 14 |
+| TFT SPI data/command select  | D/C 9      | 3       | 9       | 15 |
+| SD card chip select          | CCS 10     | 16      | 6       | 32 |
+| backlight PWM                | Lite 11    | -       | -       | -  |
+
 
 ## Wiring the Real Time Clock
 
@@ -91,5 +101,5 @@ Connect these wires from the Wemos S2 to the Adafruit pcf8523
 | 3v or 5V power     | 3v3     | VIN 1 |
 | Ground             | GND     | GND 2 |
 | SCL                | 33      | SCL 3 |
-| SDA                | 18      | SDA 4 |
+| SDA                | 35      | SDA 4 |
 | square wave        | -       | SQW 5 |
