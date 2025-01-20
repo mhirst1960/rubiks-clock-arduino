@@ -155,10 +155,15 @@ RTC_PCF8523 rtc8523;
 bool validRtc8523 = false;
 #endif //ENABLE_RTC_PCF8523
 
-char* ntpServer = "pool.ntp.org";
-long  gmtOffset_sec = -5*60*60; //0; //3600;
-int   daylightOffset_sec = 0; //3600;
+//char* ntpServer = "pool.ntp.org";
+char* ntpServer = "time1.google.com";
+const char* ntpServer1 = "pool.ntp.org";
+//const char* ntpServer2 = "time.nist.gov";
+const char* ntpServer2 = "time.apple.com";
 
+long  gmtOffset_sec = 0; //-5*60*60; //0; //3600;
+int   daylightOffset_sec = 0; //3600;
+String timezoneStr = "GMT0"; // default timezone = London
 
 #define DISPLAY_WIDTH  128
 #define DISPLAY_HEIGHT 128
@@ -174,10 +179,10 @@ AnimatedGIF gif;
 File gifFile;
 
 String folder = GIF_FOLDER;
-String filename = "";
-String previousFilename = "";
+String transitionGifName = "";
+String previousTransitionGifName = "";
 
-void printLocalTime()
+void rcPrintLocalTime()
 {
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
@@ -185,6 +190,32 @@ void printLocalTime()
     return;
   }
   Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
+bool rcSetTransitionGIFName()
+{
+
+char hm[6];
+
+#ifdef ENABLE_RTC_PCF8523
+  DateTime now = rtc8523.now();
+  sprintf(hm, "%02d%02d", now.hour(), now.minute());
+#else
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo))
+  {
+    // Serial.println("ERROR. Failed to obtain time. Not setting filename.");
+    return false;
+  }
+  sprintf(hm, "%02d%02d", timeinfo.tm_hour, timeinfo.tm_min);
+#endif
+
+  String hourmin = String(hm);
+
+
+  transitionGifName = folder + "rubiks-clock-" + hourmin + ".gif";
+
+  return true;
 }
 
 #ifdef ENABLE_WIFI
@@ -247,6 +278,8 @@ void readWiFiConfig()
     }
   }
 
+  file.close();
+
   Serial.printf("ssid = .%s.\n", ssid.c_str());
   //Serial.printf("password = .%s.\n", pwd.c_str());
 
@@ -264,15 +297,86 @@ bool isInt(const String s){
   return !isnan(s.toInt());
 }
 
-void readTimeConfig()
+// search CSV file for the string.  set TZ to value after comma
+//  Format of CSV every line looks something like this:
+//  "America/New_York","EST5EDT,M3.2.0,M11.1.0"
+
+bool rcFindTZInFile(const String tzHumanString) {
+
+  bool found = false;
+  String tz = "";
+  char line[128];
+  int n;
+  Serial.printf("rcFindTZInFile()\n");
+
+  String searchStr = String("\"") + tzHumanString + "\"";
+
+  Serial.printf("reading zones.csv..\n");
+  // open test file
+  SdFile file("/zones.csv", O_READ);
+  
+  // check for open error
+  if (!file.isOpen()) {
+    Serial.println("ERROR: cannot open file zones.csv root of sd card");
+    return false;
+  }
+
+  // read lines from the file
+  while ((n = file.fgets(line, sizeof(line))) > 0) {
+    if (line[0] == '#') continue;
+    if (line[n - 1] == '\n') {
+      String lineString = String(line);
+
+      int indexOfComma = lineString.indexOf(',');
+      int indexOfCR = lineString.indexOf('\n');
+
+      if (indexOfComma < 0 || indexOfCR < 0) {
+        // no comma in this line
+        continue;
+      }
+
+      if (lineString.startsWith(searchStr)) {
+        tz = lineString.substring(indexOfComma+1, indexOfCR);
+        found = true;
+        break;
+      }
+    } else {
+      // no '\n' - line too long or missing '\n' at EOF
+      Serial.printf("ERROR ignoring bad line %s\n", line);
+      continue;
+    }
+  }
+
+  file.close();
+
+  //Serial.printf("tz = %s\n", tz.c_str());
+
+  if (found) {
+    if (tz[0] == '\"') {
+      // remove quotes
+      timezoneStr = tz.substring(1,tz.length()-1);
+    } else {
+      timezoneStr = tz;
+    }
+
+  } else {
+    Serial.printf("ERROR timezone not found in file.  Using default.\n");
+  }
+
+  Serial.printf("timezone = %s\n", timezoneStr.c_str());
+
+  return found;
+}
+
+void rcReadTimeConfig()
 {
 
   // read file timezone.conf.
   //  Contents are:
-  //    TZ: timezone offset from UTC (E.g. -5 is Eastern USA)
+  //    TZ: timezone from https://github.com/nayarsystems/posix_tz_db/blob/master/zones.json
   //    DS: daylight savings offset (e.g 0)
   // File format:
-  // TZ=-5
+  // TZ=America/New_York
   // DS=0
   // lines that begin with # are ignored
   // no space after "=" unless it is part of the password value
@@ -280,6 +384,7 @@ void readTimeConfig()
   //Serial.print("Open file: ");
   //Serial.println(fname);
 
+  int foundIntTZ = false;
   int foundTZ = false;
   int foundDS = false;
   //String wifiConf;
@@ -314,6 +419,12 @@ void readTimeConfig()
 
         if (isInt(tz)){
           gmtOffset_sec =tz.toInt()*60*60;
+          foundIntTZ = true;
+        } else {
+          //search for string in zones.csv
+          //if (!rcFindTZInFile(tz)) {
+          //  tz = timezoneStr;
+          //}
           foundTZ = true;
         }
 
@@ -336,12 +447,23 @@ void readTimeConfig()
       Serial.printf("ERROR ignoring bad line %s\n", line);
       continue;
     }
-    if (foundTZ && foundDS) {
+    if ((foundIntTZ || foundTZ) && foundDS) {
       break;
     }
   }
 
-} /* readTimeConfig() */
+  file.close();
+
+  if (!rcFindTZInFile(tz)) {
+    timezoneStr = tz;
+  }
+} /* rcReadTimeConfig() */
+
+void setTimezone(String timezone){
+  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
+  setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+  tzset();
+}
 
 #ifdef ENABLE_SLEEP
 /*
@@ -574,7 +696,7 @@ typedef struct {
 
 MyTime myTime;
 
-bool getTime(const char *str)
+bool rcGetTime(const char *str)
 {
   int Hour, Min, Sec;
 
@@ -585,7 +707,7 @@ bool getTime(const char *str)
   return true;
 }
 
-bool getDate(const char *str)
+bool rcGetDate(const char *str)
 {
   char Month[12];
   int Day, Year;
@@ -603,6 +725,93 @@ bool getDate(const char *str)
 }
 #endif // ENABLE_RTC_ESP32
 #endif // INITIALIZE_RTC
+
+////////////////////////////////////////////////////////
+//
+// PrintTime
+//
+// Serial Print time (DD/MM/YYYY - HH:MM:SS)
+//
+void rcPrintTime() {
+  char cTime[64];
+  
+    sprintf(cTime, "day() %02u/%02u/%4u - %02u:%02u:%02u", month(), day(), year(), hour(), minute(), second());
+    Serial.println(cTime);
+
+    DateTime now = rtc8523.now();
+    sprintf(cTime, "rtc8523: %02u/%02u/%4u - %02u:%02u:%02u", now.month()+1, now.day(), now.year(), now.hour(), now.minute(), now.second());
+    Serial.println(cTime);
+
+}
+
+#ifdef ENABLE_WIFI
+bool rcWifiConnected()
+{
+  return (WiFi.status() == WL_CONNECTED);
+}
+
+bool rcWiFiWasConnected = false;
+
+// Connect to wifi and get time from NTP server
+void rcConnectToWiFi()
+{
+  //connect to WiFi
+  Serial.printf("\nConnecting to %s\n", wifiSsid.c_str());
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+
+  int connected = 0;
+  int i;
+  // 20 second timeout
+  for (i=0; i<20; i++) {
+    if (rcWifiConnected()) {
+      connected = 1;
+      break;
+    }
+    delay(1000);
+    Serial.print(".");
+  }
+
+  if (connected) {
+    Serial.println(" CONNECTED");
+
+    rcWiFiWasConnected = true;
+
+    //init and get the time
+    configTime(0, 0, ntpServer, ntpServer1, ntpServer2);
+    setTimezone(timezoneStr);
+
+    rcPrintLocalTime();
+
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)){
+      Serial.printf("Initializing RTC from NTP server\n");
+#ifdef ENABLE_RTC_ESP32
+      rtcESP.setTimeStruct(timeinfo);
+#else
+      DateTime now =  DateTime(timeinfo.tm_year+1900,timeinfo.tm_mon,timeinfo.tm_mday,
+                              timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+      if (validRtc8523){
+        char cTime[64];
+
+        Serial.printf("adjust rtc8523 time\n");
+        sprintf(cTime, "set rtc8523 time: %02u/%02u/%4u - %02u:%02u:%02u", now.day(), now.year(), now.hour(), now.minute(), now.second());
+
+        rtc8523.adjust(DateTime(now));
+      }else {
+        Serial.printf("adjust rtcESP time\n");
+        rtcESP.setTimeStruct(timeinfo);
+      }
+#endif
+    }
+    //disconnect WiFi as it's no longer needed
+    //WiFi.disconnect(true);
+    //WiFi.mode(WIFI_OFF);
+  } else {
+    Serial.printf("\nERROR: WiFi timeout.  No time set.\n");
+  }
+}
+#endif // ENABLE_WIFI
 
 ////////////////////////////////////////////////////
 // Arduino initialization in setup()
@@ -665,7 +874,7 @@ void setup() {
   // initialize chip select pins to high to avoid SPI confusion.  AKA disable both for now.
   //digitalWrite(SD_CS, LOW);
   //digitalWrite(TFT_CS, LOW);
-  //printLocalTime();
+  //rcPrintLocalTime();
 
   //Serial.println("while(1)");
   //while(1);
@@ -683,7 +892,7 @@ void setup() {
     Serial.println("SD Card mount succeeded!");
   }
 
-  readTimeConfig();
+  rcReadTimeConfig();
 
   tft.initR(INITR_144GREENTAB); // Initialize screen
   tft.fillScreen(ST7735_BLACK);
@@ -708,8 +917,8 @@ void setup() {
 
 #ifdef ENABLE_RTC_ESP32
   // Initialize with build date for now
-  getDate(__DATE__);
-  getTime(__TIME__);
+  rcGetDate(__DATE__);
+  rcGetTime(__TIME__);
 #endif // ENABLE_RTC_ESP32
 
 #ifdef ENABLE_RTC_ESP32
@@ -723,51 +932,55 @@ void setup() {
   for (int i=0; i<3; i++) {
     if (rtc8523.begin()) {
       validRtc8523 = true;
+      Serial.println("Found RTC 8523");
       break;
     } else {
       validRtc8523 = false;
-      Serial.println("Couldn't find RTC");
+      Serial.println("Couldn't find RTC 8523");
       Serial.flush();
       sleep (1);
       //while (1) delay(10);
     }
   }
-  bool shouldInitRTC = validRtc8523 && (! rtc8523.initialized() || rtc8523.lostPower());
-  shouldInitRTC = true;
+  if (validRtc8523){
 
-  if (shouldInitRTC) {
-    Serial.println("RTC is NOT initialized, let's set the time!");
-    // When time needs to be set on a new device, or after a power loss, the
+    bool shouldInitRTC = ! rtc8523.initialized() || rtc8523.lostPower();
+    //shouldInitRTC = true;
+
+    if (shouldInitRTC) {
+      Serial.println("RTC is NOT initialized, let's set the time!");
+      // When time needs to be set on a new device, or after a power loss, the
+      // following line sets the RTC to the date & time this sketch was compiled
+
+      DateTime buildTime = DateTime(F(__DATE__), F(__TIME__));
+  // maybe takes 2 minute to load and run after compile saw this file
+  
+      //DateTime maybeNow = buildTime + TimeSpan(0, 1, 5, 0);
+      DateTime maybeNow = buildTime + TimeSpan(120);
+
+      rtc8523.adjust(DateTime(maybeNow));
+      // This line sets the RTC with an explicit date & time, for example to set
+      // January 21, 2014 at 3am you would call:
+      // rtc8523.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+      //
+      // Note: allow 2 seconds after inserting battery or applying external power
+      // without battery before calling adjust(). This gives the PCF8523's
+      // crystal oscillator time to stabilize. If you call adjust() very quickly
+      // after the RTC is powered, lostPower() may still return true.
+    }
+
+    // When time needs to be re-set on a previously configured device, the
     // following line sets the RTC to the date & time this sketch was compiled
-
-    DateTime buildTime = DateTime(F(__DATE__), F(__TIME__));
- // maybe takes 2 minute to load and run after compile saw this file
- 
-    //DateTime maybeNow = buildTime + TimeSpan(0, 1, 5, 0);
-    DateTime maybeNow = buildTime + TimeSpan(120);
-
-    rtc8523.adjust(DateTime(maybeNow));
+    // rtc8523.adjust(DateTime(F(__DATE__), F(__TIME__)));
     // This line sets the RTC with an explicit date & time, for example to set
     // January 21, 2014 at 3am you would call:
     // rtc8523.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-    //
-    // Note: allow 2 seconds after inserting battery or applying external power
-    // without battery before calling adjust(). This gives the PCF8523's
-    // crystal oscillator time to stabilize. If you call adjust() very quickly
-    // after the RTC is powered, lostPower() may still return true.
+
+    // When the RTC was stopped and stays connected to the battery, it has
+    // to be restarted by clearing the STOP bit. Let's do this to ensure
+    // the RTC is running.
+    rtc8523.start();
   }
-
-  // When time needs to be re-set on a previously configured device, the
-  // following line sets the RTC to the date & time this sketch was compiled
-  // rtc8523.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  // This line sets the RTC with an explicit date & time, for example to set
-  // January 21, 2014 at 3am you would call:
-  // rtc8523.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-
-  // When the RTC was stopped and stays connected to the battery, it has
-  // to be restarted by clearing the STOP bit. Let's do this to ensure
-  // the RTC is running.
-  rtc8523.start();
 #endif // ENABLE_RTC_PCF8523
 
 #endif //INITIALIZE_RTC
@@ -782,52 +995,8 @@ void setup() {
 
   readWiFiConfig();
 
-  //connect to WiFi
-  Serial.printf("\nConnecting to %s\n", wifiSsid.c_str());
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(wifiSsid, wifiPassword);
+  //rcConnectToWiFi();
 
-  int connected = 0;
-  int i;
-  // 20 second timeout
-  for (i=0; i<20; i++) {
-    if (WiFi.status() == WL_CONNECTED) {
-      connected = 1;
-      break;
-    }
-    delay(1000);
-    Serial.print(".");
-  }
-
-  if (connected) {
-    Serial.println(" CONNECTED");
-
-    //init and get the time
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-    printLocalTime();
-
-  struct tm timeinfo;
-  if (getLocalTime(&timeinfo)){
-    Serial.printf("Initializing RTC from NTP server\n");
-#ifdef ENABLE_RTC_ESP32
-    rtcESP.setTimeStruct(timeinfo);
-#else
-    DateTime now =  DateTime(timeinfo.tm_year,timeinfo.tm_mon,timeinfo.tm_mday,
-                            timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
-    if (validRtc8523){
-      rtc8523.adjust(DateTime(now));
-    }else {
-      rtcESP.setTimeStruct(timeinfo);
-    }
-#endif
-  }
-    //disconnect WiFi as it's no longer needed
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-  } else {
-    Serial.printf("\nERROR: WiFi timeout. Unable to reach NTP server. Time may not be correct.\n");
-  }
-  //} // didWakeFromSleep
 
 #endif // ENABLE_WIFI
 
@@ -839,35 +1008,55 @@ void setup() {
 
 void loop() {
 
-#ifdef ENABLE_RTC_ESP32
-  filename = rtcESP.getTime("/12hourclock-128x128/rubiks-clock-%H%M.gif");
-#endif
+  static bool triedWiFiJustNow = false;
 
-#ifdef ENABLE_RTC_PCF8523
-  if (validRtc8523) {
-    DateTime now = rtc8523.now();
-
-    int hour = now.hour();
-    int minute = now.minute();
-    char hm[6];
-    sprintf(hm, "%02d%02d", hour, minute);
-    String hourmin = String(hm);
-    filename = folder + "rubiks-clock-" + hourmin + ".gif";
-  } else {
-    filename = rtcESP.getTime("/12hourclock-128x128/rubiks-clock-%H%M.gif");
+  static unsigned long previousMinute=0;
+  static unsigned long previousHour=0;
+  static unsigned long previousDay=0;
+  DateTime now = rtc8523.now();
+  if (previousMinute != now.minute()) {
+    previousMinute = now.minute();
+    //rcPrintTime();
   }
-#endif
 
-  if (!filename.equals(previousFilename)) {
+  if (!triedWiFiJustNow && !rcWiFiWasConnected) {
+      Serial.println("WiFi was not connected.  Attempt to connect now.");
+      rcConnectToWiFi();
+      triedWiFiJustNow = true;
+  }
+
+  rcSetTransitionGIFName();
+
+  if (!transitionGifName.equals(previousTransitionGifName)) {
 
       countSinceSleep++;
 
       Serial.println ("Time changed!");
-      previousFilename = filename;
+      previousTransitionGifName = transitionGifName;
 
-      printLocalTime();
+      rcPrintLocalTime();
 
-      playGif(filename);
+      playGif(transitionGifName);
+
+  if (previousHour != now.hour()) {
+    previousHour = now.hour();
+    Serial.println("Hour changed. update from NTP");
+    if (!rcWiFiWasConnected) {
+      Serial.println("WiFi was not connected.  Attempt to connect now.");
+      rcConnectToWiFi();
+      triedWiFiJustNow = true;
+    }
+
+  if (previousDay != now.day()) {
+    previousDay = now.day();
+    if (!triedWiFiJustNow) {
+      Serial.println("Day changed. update from NTP");
+      rcConnectToWiFi();
+      triedWiFiJustNow = true;
+    }
+  }
+  }
+
 
 #ifdef ENABLE_SLEEP
       if (countSinceSleep > WAKE_TIME) {
