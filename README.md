@@ -42,7 +42,7 @@ https://learn.adafruit.com/adafruit-1-44-color-tft-with-micro-sd-socket
 
 - https://learn.adafruit.com/adafruit-pcf8523-real-time-clock/rtc-with-arduino
 
-## Ardiuno Software
+## Arduino Software
 
 ### Libraries to install
 
@@ -64,9 +64,8 @@ Install esp32 by Espressif Systems
 
 
 ## Bugs
-- I was never able to robustly get WiFi working on my Wemos S2.  I saw it work only once in all my experiments.  I will experiment more with other Arduino boards.  The Adafruit Feather wFL has good reviews.
-- Because of the above issue, I'm not entirely sure if the NPT code will actually update the time after if there is an internet connection.
-- I'm not entirely sure that the code is correct for the internal RTC.  Without the External RTC attached you can define ENABLE_RTC_ESP32 to use the internal RTC, but, you would need some sort of minimal battery to hold the time while the board is unplugged.  I haven't tried using a battery to power my Wemos S2. 
+- WiFi on the Wemos S2 seems to only work when I select a 2.4GHz network.
+- The implementation I have requires an external RTC.  To hold the time in the internal RTC you still need a Lithium battery for when transporting and as a wearable.  I tried using an Adafruit battery and charger which works great until the battery runs low.  Recovering after the charge Is unreliable and more often than not I found I needed to toggle power connection to the Wemos.  There for RTC time was lost. 
 
 ## Wiring the S2 mini and TFT
 
@@ -77,19 +76,19 @@ Connect these wires from the Adafruit ST7735 TFT to either of these:
   - Feather: https://www.adafruit.com/product/5000
   - https://learn.adafruit.com/adafruit-esp32-s2-feather/pinouts 
 
-| Description                  | ST7735 TFT | S2 Mini | Feather S2 | Feather ESP32 |
-| ----                         | -------    | --------| -------------- | -----|
-| 3v or 5V power               |Vin 1       | 3v3     | Vin     | Vin |
-| 3.3V out                     | 3v3 2      | -       | 3V      | 3V |
-| Ground                       | Gnd 3      | GND     | GND     | GND |
-| SPI clock                    | SCK 4      | 7       | SCK     | SCK |
-| MISO (for SD card only)      | SO 5       | 9       | MI (21) | MI  |
-| MOSI                         | SI 6       | 11      | MO (19) | MO |
-| TFT_CS chip select           | TCS 7      | 12 (SS) | 12      | 12 |
-| TFT reset                    | RST 8      | 5       | 5       | 14 |
-| TFT SPI data/command select  | D/C 9      | 3       | 9       | 15 |
-| SD card chip select          | CCS 10     | 16      | 6       | 32 |
-| backlight PWM                | Lite 11    | -       | -       | -  |
+| Description                  | ST7735 TFT | S2 Mini | 
+| ----                         | -------    | --------|
+| 3v or 5V power               | Vin 1      | 3v3     |
+| 3.3V out                     | 3v3 2      | -       |
+| Ground                       | Gnd 3      | GND     |
+| SPI clock                    | SCK 4      | 7       |
+| MISO (for SD card only)      | SO 5       | 9       |
+| MOSI                         | SI 6       | 11      |
+| TFT_CS chip select           | TCS 7      | 39      |
+| TFT reset                    | RST 8      | 5       |
+| TFT SPI data/command select  | D/C 9      | 3       |
+| SD card chip select          | CCS 10     | 16      |
+| backlight PWM                | Lite 11    | 33       |
 
 
 ## Wiring the Real Time Clock
