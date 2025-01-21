@@ -12,6 +12,7 @@ The is an Arduino variant based on my original Rubik's clock that runs Javascrip
 ![Alt Text](sdcard_files/12hourclock-128x128/rubiks-clock-0843.gif "The time is 08:43")
 ![Alt Text](sdcard_files/12hourclock-128x128/rubiks-clock-1002.gif "The time is 10:02")
 
+![Alt Text](images/rubiks-clock-1054.gif "The time is 10:54")
 
 # Parts
 
