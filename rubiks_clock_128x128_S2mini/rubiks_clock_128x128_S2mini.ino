@@ -189,26 +189,68 @@ void rcPrintLocalTime()
     Serial.println("Failed to obtain time");
     return;
   }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  Serial.println(&timeinfo, "rcPrintLocalTime(): %A, %B %d %Y %H:%M:%S");
 }
 
 bool rcSetTransitionGIFName()
 {
 
 char hm[6];
+bool validTime = false;
+int thisYear = 9999;
 
 #ifdef ENABLE_RTC_PCF8523
-  DateTime now = rtc8523.now();
-  sprintf(hm, "%02d%02d", now.hour(), now.minute());
-#else
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo))
+  if (validRtc8523) {
+    DateTime now = rtc8523.now();
+
+    if (now.year() > 2022) {
+        sprintf(hm, "%02d%02d", now.hour(), now.minute());
+        validTime = true;
+    } else {
+      //Serial.println("rtc8523.now() returned invalid time");
+    }
+  }
+#endif
+
+  thisYear = year();
+
+  if (!validTime && thisYear > 2022) {
+    //Serial.printf("valid year=%d\n", thisYear);
+    sprintf(hm, "%02d%02d", hour(), minute());
+    validTime = true;
+  } else {
+    //Serial.println("year() returned invalid time");
+  }
+
+  if (!validTime) {
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo))
+    {
+      thisYear = timeinfo.tm_year + 1900;
+      if (thisYear > 2022)
+      {
+        //Serial.printf("valid timeinfo.tm_year=%d set time to %02d:%02d\n", thisYear, timeinfo.tm_hour, timeinfo.tm_min);
+
+        sprintf(hm, "%02d%02d", timeinfo.tm_hour, timeinfo.tm_min);
+
+        validTime = true;
+      } else{
+        Serial.printf("timeinfo.tm_year is not valid %d\n", thisYear);
+      }
+
+    } else {
+      Serial.println("ERROR. getLocalTime() Failed.");
+    }
+    //sprintf(hm, "%02d%02d", timeinfo.tm_hour, timeinfo.tm_min);
+  }
+
+  if (!validTime)
   {
-    // Serial.println("ERROR. Failed to obtain time. Not setting filename.");
+    Serial.println("ERROR. Failed to obtain time. Not setting filename.");
     return false;
   }
-  sprintf(hm, "%02d%02d", timeinfo.tm_hour, timeinfo.tm_min);
-#endif
+
+  //Serial.printf("hm = %s.  Setting file to rubiks-clock-%s.gif\n", hm, hm);
 
   String hourmin = String(hm);
 
@@ -738,10 +780,11 @@ void rcPrintTime() {
     sprintf(cTime, "day() %02u/%02u/%4u - %02u:%02u:%02u", month(), day(), year(), hour(), minute(), second());
     Serial.println(cTime);
 
+  if (validRtc8523) {
     DateTime now = rtc8523.now();
     sprintf(cTime, "rtc8523: %02u/%02u/%4u - %02u:%02u:%02u", now.month()+1, now.day(), now.year(), now.hour(), now.minute(), now.second());
     Serial.println(cTime);
-
+  }
 }
 
 #ifdef ENABLE_WIFI
@@ -1009,15 +1052,29 @@ void setup() {
 void loop() {
 
   static bool triedWiFiJustNow = false;
+  bool validYear = false;
 
   static unsigned long previousMinute=0;
   static unsigned long previousHour=0;
   static unsigned long previousDay=0;
-  DateTime now = rtc8523.now();
-  if (previousMinute != now.minute()) {
-    previousMinute = now.minute();
-    //rcPrintTime();
+
+  DateTime now;
+  if (validRtc8523) {
+    now = rtc8523.now();
+
+    if (now.year() < 2022) {
+      //Serial.println("rtc8523.now() returned invalid time");
+      validYear = false;
+    } else {
+      validYear = true;
+    }
+
+    if (validYear && previousMinute != now.minute()) {
+      previousMinute = now.minute();
+      //rcPrintTime();
+    }
   }
+ 
 
   if (!triedWiFiJustNow && !rcWiFiWasConnected) {
       Serial.println("WiFi was not connected.  Attempt to connect now.");
@@ -1025,9 +1082,10 @@ void loop() {
       triedWiFiJustNow = true;
   }
 
-  rcSetTransitionGIFName();
+  bool timeChanged =
+    rcSetTransitionGIFName();
 
-  if (!transitionGifName.equals(previousTransitionGifName)) {
+  if (timeChanged && !transitionGifName.equals(previousTransitionGifName)) {
 
       countSinceSleep++;
 
@@ -1038,7 +1096,7 @@ void loop() {
 
       playGif(transitionGifName);
 
-  if (previousHour != now.hour()) {
+  if (validRtc8523 && validYear && previousHour != now.hour()) {
     previousHour = now.hour();
     Serial.println("Hour changed. update from NTP");
     if (!rcWiFiWasConnected) {
@@ -1047,14 +1105,14 @@ void loop() {
       triedWiFiJustNow = true;
     }
 
-  if (previousDay != now.day()) {
-    previousDay = now.day();
-    if (!triedWiFiJustNow) {
-      Serial.println("Day changed. update from NTP");
-      rcConnectToWiFi();
-      triedWiFiJustNow = true;
+    if (validYear && previousDay != now.day()) {
+      previousDay = now.day();
+      if (!triedWiFiJustNow) {
+        Serial.println("Day changed. update from NTP");
+        rcConnectToWiFi();
+        triedWiFiJustNow = true;
+      }
     }
-  }
   }
 
 
