@@ -151,13 +151,17 @@ After that, on the host computer, sort all the images by size and test the large
    
   convert splashscreen.png -type truecolor splashscreen.bmp
 
-## drifting splashscreen
+## Create Splashscreen Demo
 
 1. grab image of a cube.
-2. import to iMovie
-3. crop ken burns so it drifts up
-4. export mp4
-5. ffmpeg  -i  cubedemo.mp4 -vf "fps=25,crop=iw-320:ih:120:0,scale=128:128:flags=lanczos,palettegen"  -y palette.png
-6. ffmpeg -i cubedemo.mp4 -i  palette.png -lavfi fps=25,crop=iw-320:ih:120:0,scale=128:128:flags=lanczos -y cubedemo.gif
-7. copy cubedemo.gif to sdcard
+2. import to iMovie and crop and stitch as you like (Ken burns cropping with extreme zoom might be an interesting effect)
+3. export mp4
+4. ffmpeg  -i  cubedemo.mp4 -vf "fps=25,crop=iw-320:ih:120:0,scale=128:128:flags=lanczos,palettegen"  -y palette.png
+5. ffmpeg -i cubedemo.mp4 -i  palette.png -lavfi fps=25,crop=iw-320:ih:120:0,scale=128:128:flags=lanczos -y cubedemo.gif
+6. copy cubedemo.gif to sdcard
 
+## Case
+
+Here's a possibility
+
+https://www.thingiverse.com/thing:500966/files
