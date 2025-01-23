@@ -16,7 +16,7 @@ The is an Arduino variant based on my original Rubik's clock that runs Javascrip
 
 # Parts
 
-![Alt Text](Images/Rubiks-clock-S2Mini-breadboard.png "Wemos S2 Mini, 1.44 TFT, RTC")
+![Alt Text](images/Rubiks-clock-S2Mini-breadboard.png "Wemos S2 Mini, 1.44 TFT, RTC")
 
 - Wemos S2 mini 
 - Adafruit 1.44" Color TFT with Micro SD Socket
