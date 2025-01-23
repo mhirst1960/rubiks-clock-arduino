@@ -103,3 +103,55 @@ Connect these wires from the Wemos S2 to the Adafruit pcf8523
 | SCL                | 33      | SCL 3 |
 | SDA                | 35      | SDA 4 |
 | square wave        | -       | SQW 5 |
+
+## Clock Configuration
+
+You can set your WiFi password and timezone by editing a couple of files found ont he SD Card.
+
+### Timezone
+
+Set your timezone by editing time.conf at the top level of the SD Card (This is sdcard_files/time.conf in the github repo, which gets copied to the SD Card during installation).  There are various options documented as comments in that file but typically you just need to set the "TZ=" variable.
+
+Modify this line:
+
+```
+TZ=America/New_York
+```
+
+to a value that represents where you live.  The list of possible values is extensive and can be found in zones.csv or https://github.com/nayarsystems/posix_tz_db/blob/master/zones.json
+
+### WiFi Password
+
+Set you WiFi connection by editing wifi.conf also found at the top level of the SD Card.  Change these two lines to match WiFi where you will be using your clock:
+
+```
+ssid=mynetwork
+password=mywifipassword
+```
+
+So, for example, if your network name is "xfinitywifi" and your password is "wifipassword1234" then change those lines to:
+
+```
+ssid=xfinitywifi
+password=wifipassword1234
+```
+
+When your Rubik's clock powers on it will connect to you WiFi using those credentials. Note: I have two choices at my house.  I have the best luck when I use the 2.4 GHz connection.
+
+## 24 hour vs. AM/PM
+
+By default the clock shows time as AM/PM.  At one hour after noon, the clock shows 1:00.  If you prefer for it to show 13:00 then you will need to edit rubiks_clock_128x128_S2mini.ino.  Find these lines near the top:
+
+```
+#define CLOCK12
+//#define CLOCK24
+```
+
+And change it to this:
+
+```
+//#define CLOCK12
+#define CLOCK24
+```
+
+(TODO: maybe someday I will add some code so that can be configured in time.conf)
