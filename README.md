@@ -136,7 +136,20 @@ ssid=xfinitywifi
 password=wifipassword1234
 ```
 
-When your Rubik's clock powers on it will connect to you WiFi using those credentials. Note: I have two choices at my house.  I have the best luck when I use the 2.4 GHz connection.
+#### up to 10 SSIDs
+
+Also, if you want to configure more than one SSID, you can add up to 10 pairs of ssid/password.  Just add more values to the end of wifi.conf:
+
+```
+ssid=myfriendswifi
+password=friendpassword
+```
+
+When your Rubik's clock powers on it will connect to you WiFi using the credentials.  If the first one fails, it will try the second, and so on until one on=f them works.
+
+
+#### 2.4 GHz is best
+I have two choices at my house.  I have the best luck when I use the 2.4 GHz connection.
 
 ## 24 hour vs. AM/PM
 
