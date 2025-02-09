@@ -145,7 +145,7 @@ ssid=myfriendswifi
 password=friendpassword
 ```
 
-When your Rubik's clock powers on it will connect to you WiFi using the credentials.  If the first one fails, it will try the second, and so on until one on=f them works.
+When your Rubik's clock powers on it will connect to your WiFi using the credentials.  If the first one fails, it will try the second, and so on until one of them works.
 
 
 #### 2.4 GHz is best

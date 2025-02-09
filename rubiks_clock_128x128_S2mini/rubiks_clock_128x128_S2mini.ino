@@ -1118,6 +1118,7 @@ void loop() {
   static unsigned long previousHour=0;
   static unsigned long previousDay=0;
   static unsigned long minutesSinceWifiAttempted = 100000;
+  static unsigned long lastMillis=0;
 
   struct tm timeinfo;
     
@@ -1129,11 +1130,22 @@ void loop() {
       minutesSinceWifiAttempted++;
       //rcPrintTime();
     }
+  } else {
+    Serial.println("ERROR. Failed to obtain time.");
+  }
+
+  // If time is not correct, we can just use this 1-minute timer to retry stuff.
+  if (millis() - lastMillis > 60000) {
+    lastMillis = millis();
+    if (!validYear) {
+      minutesSinceWifiAttempted++;
+    }
+    Serial.printf("minutesSinceWifiAttempted = %d\n", minutesSinceWifiAttempted);
   }
 
   triedWiFiJustNow = false;
 
-  if (minutesSinceWifiAttempted > 5 && !rcWiFiWasConnected) {
+  if (minutesSinceWifiAttempted >= 2 && !rcWiFiWasConnected) {
       Serial.println("WiFi was not connected.  Attempt to connect now.");
       rcConnectToWiFi();
       minutesSinceWifiAttempted = 0;
@@ -1154,6 +1166,9 @@ void loop() {
 
       playGif(transitionGifName);
 
+  // gif animation just finished.
+  // We now have the better part of a minute to do stuff like
+  // sync time from WiFi before the next animation happens.
   if (previousHour != timeinfo.tm_hour) {
     previousHour = timeinfo.tm_hour;
     Serial.println("Hour changed. update from NTP");
